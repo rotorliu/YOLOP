@@ -94,8 +94,7 @@ def pytorch2onnx(model,
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description='Convert MMDetection models to ONNX')
-    parser.add_argument('config', help='test config file path')
+        description='Convert models to ONNX')
     parser.add_argument('checkpoint', help='checkpoint file')
     parser.add_argument('--input-img', type=str, help='Images for input')
     parser.add_argument('--show', action='store_true', help='show onnx graph')
