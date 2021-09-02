@@ -40,7 +40,7 @@ transform=transforms.Compose([
 
 def detect(cfg,opt):
 
-    logger, final_output_dir, tb_log_dir = create_logger(
+    logger, _, _ = create_logger(
         cfg, cfg.LOG_DIR, 'demo')
 
     device = select_device(logger,opt.device)
@@ -92,8 +92,9 @@ def detect(cfg,opt):
         t1 = time_synchronized()
         det_out, da_seg_out,ll_seg_out= model(img)
         t2 = time_synchronized()
-
-        inf_out,train_out = det_out
+        if i == 0:
+            print(det_out)
+        inf_out, _ = det_out
         inf_time.update(t2-t1,img.size(0))
 
         # Apply NMS
