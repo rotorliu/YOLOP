@@ -4,6 +4,12 @@ import torch
 import torch.nn as nn
 from PIL import Image, ImageDraw
 
+import os, sys
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(BASE_DIR)
+
+from lib.core.activations import Hardswish
+
 
 def autopad(k, p=None):  # kernel, padding
     # Pad to 'same'
@@ -33,7 +39,7 @@ class DepthSeperabelConv2d(nn.Module):
         self.downsample = downsample
         self.stride = stride
         try:
-            self.act = nn.Hardswish() if act else nn.Identity()
+            self.act = nn.ReLU() if act else nn.Identity()
         except:
             self.act = nn.Identity()
 
@@ -63,7 +69,7 @@ class SharpenConv(nn.Module):
         self.conv.weight.requires_grad = False
         self.bn = nn.BatchNorm2d(c2)
         try:
-            self.act = nn.Hardswish() if act else nn.Identity()
+            self.act = nn.ReLU() if act else nn.Identity()
         except:
             self.act = nn.Identity()
 
@@ -81,7 +87,7 @@ class Conv(nn.Module):
         self.conv = nn.Conv2d(c1, c2, k, s, autopad(k, p), groups=g, bias=False)
         self.bn = nn.BatchNorm2d(c2)
         try:
-            self.act = nn.Hardswish() if act else nn.Identity()
+            self.act = nn.ReLU() if act else nn.Identity()
         except:
             self.act = nn.Identity()
 
@@ -94,7 +100,7 @@ class Conv(nn.Module):
 
 class Bottleneck(nn.Module):
     # Standard bottleneck
-    def __init__(self, c1, c2, shortcut=True, g=1, e=0.5):  # ch_in, ch_out, shortcut, groups, expansion
+    def __init__(self, c1, c2, n=1, shortcut=True, g=1, e=0.5):  # ch_in, ch_out, shortcut, groups, expansion
         super(Bottleneck, self).__init__()
         c_ = int(c2 * e)  # hidden channels
         self.cv1 = Conv(c1, c_, 1, 1)
@@ -181,6 +187,7 @@ class Detect(nn.Module):
         z = []  # inference output
         for i in range(self.nl):
             x[i] = self.m[i](x[i])  # conv
+
             # print(str(i)+str(x[i].shape))
             bs, _, ny, nx = x[i].shape  # x(bs,255,w,w) to x(bs,3,w,w,85)
             x[i] = x[i].view(bs, self.na, self.no, ny, nx).permute(0, 1, 3, 4, 2).contiguous()
@@ -195,9 +202,6 @@ class Detect(nn.Module):
                 #print(self.grid[i].shape) #[1, 3, w, h, 2]
                 y[..., 0:2] = (y[..., 0:2] * 2. - 0.5 + self.grid[i].to(x[i].device)) * self.stride[i]  # xy
                 y[..., 2:4] = (y[..., 2:4] * 2) ** 2 * self.anchor_grid[i]  # wh
-                """print("**")
-                print(y.shape)  #[1, 3, w, h, 85]
-                print(y.view(bs, -1, self.no).shape) #[1, 3*w*h, 85]"""
                 z.append(y.view(bs, -1, self.no))
         return x if self.training else (torch.cat(z, 1), x)
 

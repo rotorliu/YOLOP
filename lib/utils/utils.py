@@ -1,8 +1,13 @@
-import os
+import os, sys
 import logging
 import time
 from collections import namedtuple
 from pathlib import Path
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(BASE_DIR)
+
+from lib.core.activations import Hardswish
 
 import torch
 import torch.optim as optim
@@ -123,7 +128,7 @@ def initialize_weights(model):
         elif t is nn.BatchNorm2d:
             m.eps = 1e-3
             m.momentum = 0.03
-        elif t in [nn.Hardswish, nn.LeakyReLU, nn.ReLU, nn.ReLU6]:
+        elif t in [Hardswish, nn.LeakyReLU, nn.ReLU, nn.ReLU6]:
         # elif t in [nn.LeakyReLU, nn.ReLU, nn.ReLU6]:
             m.inplace = True
 
