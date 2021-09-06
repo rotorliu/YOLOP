@@ -187,7 +187,8 @@ class Detect(nn.Module):
         z = []  # inference output
         for i in range(self.nl):
             x[i] = self.m[i](x[i])  # conv
-
+        return x
+        """
             # print(str(i)+str(x[i].shape))
             bs, _, ny, nx = x[i].shape  # x(bs,255,w,w) to x(bs,3,w,w,85)
             x[i] = x[i].view(bs, self.na, self.no, ny, nx).permute(0, 1, 3, 4, 2).contiguous()
@@ -203,7 +204,7 @@ class Detect(nn.Module):
                 y[..., 0:2] = (y[..., 0:2] * 2. - 0.5 + self.grid[i].to(x[i].device)) * self.stride[i]  # xy
                 y[..., 2:4] = (y[..., 2:4] * 2) ** 2 * self.anchor_grid[i]  # wh
                 z.append(y.view(bs, -1, self.no))
-        return x if self.training else (torch.cat(z, 1), x)
+        return x if self.training else (torch.cat(z, 1), x)"""
 
     @staticmethod
     def _make_grid(nx=20, ny=20):

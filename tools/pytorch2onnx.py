@@ -1,5 +1,8 @@
 import argparse
+import os, sys
 import os.path as osp
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(BASE_DIR)
 
 import numpy as np
 import onnx
@@ -32,11 +35,12 @@ def pytorch2onnx(model,
     model.cuda().eval()
     # read image
     one_img = cv2.imread(input_img, cv2.IMREAD_COLOR | cv2.IMREAD_IGNORE_ORIENTATION)  # BGR
+    one_img = cv2.resize(one_img, input_shape[2:])
     one_img = transform(one_img)
-    one_img = cv2.imresize(one_img, input_shape[2:]).transpose(2, 0, 1)
-    one_img = torch.from_numpy(one_img).unsqueeze(0).float().cuda()
+    one_img = one_img.unsqueeze(0) if one_img.ndimension() == 3 else one_img
+    one_img = one_img.float().cuda()
 
-    output_names = ['det', 'da_seg', 'll_seg']
+    output_names = ['det1', 'det2', 'det3', 'da_seg', 'll_seg']
     input_name = 'input'
 
     torch.onnx.export(
@@ -52,7 +56,7 @@ def pytorch2onnx(model,
     if do_simplify:
         import onnxsim
 
-        input_dic = {'input': one_img.detach().cpu().numpy()}
+        input_dic = {input_name: one_img.detach().cpu().numpy()}
         onnx_model = onnx.load(output_file)
         model_simp, check = onnxsim.simplify(onnx_model, input_data=input_dic)
         assert check, "Simplified ONNX model could not be validated"
@@ -69,25 +73,31 @@ def pytorch2onnx(model,
         # check the numerical value
         # get pytorch output
         pytorch_det_pred, pytorch_da_seg_pred, pytorch_ll_seg_pred = model(one_img)
-        pytorch_det_pred, pytorch_da_seg_pred, pytorch_ll_seg_pred = pytorch_det_pred.numpy(), pytorch_da_seg_pred.numpy(), pytorch_ll_seg_pred.numpy()
+        pytorch_det1_pred = pytorch_det_pred[0].detach().cpu().numpy()
+        print(f'pytorch_det1_pred shape: {pytorch_det1_pred.shape}')
+        pytorch_det2_pred = pytorch_det_pred[1].detach().cpu().numpy()
+        print(f'pytorch_det2_pred shape: {pytorch_det2_pred.shape}')
+        pytorch_det3_pred = pytorch_det_pred[2].detach().cpu().numpy()
+        print(f'pytorch_det3_pred shape: {pytorch_det3_pred.shape}')
+        pytorch_da_seg_pred, pytorch_ll_seg_pred = pytorch_da_seg_pred.detach().cpu().numpy(), pytorch_ll_seg_pred.detach().cpu().numpy()
+        print(f'pytorch_da_seg_pred shape: {pytorch_da_seg_pred.shape}')
+        print(f'pytorch_ll_seg_pred shape: {pytorch_ll_seg_pred.shape}')
 
         # get onnx output
-        input_all = [node.name for node in onnx_model.graph.input]
-        input_initializer = [
-            node.name for node in onnx_model.graph.initializer
-        ]
-        net_feed_input = list(set(input_all) - set(input_initializer))
-        assert (len(net_feed_input) == 1)
         sess = rt.InferenceSession(output_file)
-        det_pred, da_seg_pred, ll_seg_pred = sess.run(
-            None, {net_feed_input[0]: one_img.detach().cpu().numpy()})
+        det1_pred, det2_pred, det3_pred, da_seg_pred, ll_seg_pred= sess.run(
+            output_names, {input_name: one_img.detach().cpu().numpy()})
         # only compare a part of result
         assert np.allclose(
-            pytorch_det_pred, det_pred
+            pytorch_det1_pred, det1_pred, rtol=1.e-2, atol=1.e-6
         ) and np.allclose(
-            pytorch_da_seg_pred, da_seg_pred
+            pytorch_det2_pred, det2_pred, rtol=1.e-2, atol=1.e-6
         ) and np.allclose(
-            pytorch_ll_seg_pred, ll_seg_pred
+            pytorch_det3_pred, det3_pred, rtol=1.e-2, atol=1.e-6
+        ) and np.allclose(
+            pytorch_da_seg_pred, da_seg_pred, rtol=1.e-3
+        ) and np.allclose(
+            pytorch_ll_seg_pred, ll_seg_pred, rtol=1.e-3
         ), 'The outputs are different between Pytorch and ONNX'
         print('The numerical values are same between Pytorch and ONNX')
 
@@ -112,7 +122,7 @@ def parse_args():
         '--shape',
         type=int,
         nargs='+',
-        default=[384, 768],
+        default=[640, 640],
         help='input image size')
     args = parser.parse_args()
     return args
@@ -132,12 +142,9 @@ if __name__ == '__main__':
     else:
         raise ValueError('invalid input shape')
 
-    assert len(args.mean) == 3
-    assert len(args.std) == 3
-
     # build the model
     model = get_net(cfg)
-    checkpoint = torch.load(args.checkpoint)
+    checkpoint = torch.load(args.checkpoint, map_location='cuda')
     model.load_state_dict(checkpoint['state_dict'])
 
     # conver model to onnx file
