@@ -109,7 +109,7 @@ class MultiHeadLoss(nn.Module):
 
         drive_area_seg_predicts = predictions[1].view(-1)
         drive_area_seg_targets = targets[1].view(-1)
-        lseg_da = BCEseg(drive_area_seg_predicts, drive_area_seg_targets)
+        lseg_da = BCEseg(drive_area_seg_predicts[0: len(drive_area_seg_targets)], drive_area_seg_targets)
 
         lane_line_seg_predicts = predictions[2].view(-1)
         lane_line_seg_targets = targets[2].view(-1)
