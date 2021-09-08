@@ -451,35 +451,36 @@ MCnet_share1 = [
 
 # The lane line and the driving area segment branches without share information with each other and without link
 YOLOP = [
-[24, 33, 42],   #Det_out_idx, Da_Segout_idx, LL_Segout_idx
+[15, 24, 33],   #Det_out_idx, Da_Segout_idx, LL_Segout_idx
 [ -1, Conv, [3, 32, 3, 2]],    #0
 [ -1, Conv, [32, 64, 3, 2]],    #1
 [ -1, Bottleneck, [64, 64, 1]],  #2
 [ -1, Conv, [64, 128, 3, 2]],   #3
 [ -1, Bottleneck, [128, 128, 3]],    #4
 [ -1, Conv, [128, 256, 3, 2]],  #5
-[ -1, Bottleneck, [256, 256, 3]],    #6
-[ -1, Conv, [256, 512, 3, 2]],  #7
-[ -1, SPP, [512, 512, [5, 9, 13]]],     #8
-[ -1, Bottleneck, [512, 512, 1, False]],     #9
-[ -1, Conv,[512, 256, 1, 1]],   #10
-[ -1, Upsample, [None, 2, 'nearest']],  #11
-[ [-1, 6], Concat, [1]],    #12
-[ -1, Bottleneck, [512, 256, 1, False]], #13
-[ -1, Conv, [256, 128, 1, 1]],  #14
-[ -1, Upsample, [None, 2, 'nearest']],  #15
-[ [-1,4], Concat, [1]],     #16         #Encoder
+[ -1, SPP, [256, 256, [5, 9, 13]]],     #6
+[ -1, Bottleneck, [256, 256, 1, False]],     #7
+[ -1, Conv,[256, 128, 1, 1]],   #8
+[ -1, Upsample, [None, 2, 'nearest']],  #9
+[ [-1, 4], Concat, [1]],    #10
 
-[ -1, Bottleneck, [256, 128, 1, False]],     #17
-[ -1, Conv, [128, 128, 3, 2]],      #18
-[ [-1, 14], Concat, [1]],       #19
-[ -1, Bottleneck, [256, 256, 1, False]],     #20
-[ -1, Conv, [256, 256, 3, 2]],      #21
-[ [-1, 10], Concat, [1]],   #22
-[ -1, Bottleneck, [512, 512, 1, False]],     #23
-[ [17, 20, 23], Detect,  [22, [[3,9,5,11,4,20], [7,18,6,39,12,31], [19,50,38,81,68,157]], [128, 256, 512]]], #Detection head 24
+[ -1, Bottleneck, [256, 128, 1, False]],     #11
+[ -1, Conv, [128, 128, 3, 2]],      #12
+[ [-1, 8], Concat, [1]],   #13
+[ -1, Bottleneck, [256, 256, 1, False]],     #14
+[ [11, 14], Detect,  [1, [[3,9,5,11,4,20], [7,18,6,39,12,31]], [128, 256]]], #Detection head 15
 
-[ 16, Conv, [256, 128, 3, 1]],   #25
+[ 10, Conv, [256, 128, 3, 1]],   #16
+[ -1, Upsample, [None, 2, 'nearest']],  #17
+[ -1, Bottleneck, [128, 64, 1, False]],  #18
+[ -1, Conv, [64, 32, 3, 1]],    #19
+[ -1, Upsample, [None, 2, 'nearest']],  #20
+[ -1, Conv, [32, 16, 3, 1]],    #21
+[ -1, Bottleneck, [16, 8, 1, False]],    #22
+[ -1, Upsample, [None, 2, 'nearest']],  #23
+[ -1, Conv, [8, 2, 3, 1]], #24 Driving area segmentation head
+
+[ 10, Conv, [256, 128, 3, 1]],   #25
 [ -1, Upsample, [None, 2, 'nearest']],  #26
 [ -1, Bottleneck, [128, 64, 1, False]],  #27
 [ -1, Conv, [64, 32, 3, 1]],    #28
@@ -487,17 +488,7 @@ YOLOP = [
 [ -1, Conv, [32, 16, 3, 1]],    #30
 [ -1, Bottleneck, [16, 8, 1, False]],    #31
 [ -1, Upsample, [None, 2, 'nearest']],  #32
-[ -1, Conv, [8, 9, 3, 1]], #33 Driving area segmentation head
-
-[ 16, Conv, [256, 128, 3, 1]],   #34
-[ -1, Upsample, [None, 2, 'nearest']],  #35
-[ -1, Bottleneck, [128, 64, 1, False]],  #36
-[ -1, Conv, [64, 32, 3, 1]],    #37
-[ -1, Upsample, [None, 2, 'nearest']],  #38
-[ -1, Conv, [32, 16, 3, 1]],    #39
-[ -1, Bottleneck, [16, 8, 1, False]],    #40
-[ -1, Upsample, [None, 2, 'nearest']],  #41
-[ -1, Conv, [8, 2, 3, 1]] #42 Lane line segmentation head
+[ -1, Conv, [8, 2, 3, 1]] #33 Lane line segmentation head
 ]
 
 
