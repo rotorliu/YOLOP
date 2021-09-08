@@ -14,6 +14,8 @@ from lib.config import cfg
 from lib.models import get_net
 import torchvision.transforms as transforms
 
+from thop import profile
+
 normalize = transforms.Normalize(
         mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
     )
@@ -32,15 +34,15 @@ def pytorch2onnx(model,
                  output_file='tmp.onnx',
                  verify=False,
                  do_simplify=False):
-    model.cuda().eval()
+    
     # read image
     one_img = cv2.imread(input_img, cv2.IMREAD_COLOR | cv2.IMREAD_IGNORE_ORIENTATION)  # BGR
     one_img = cv2.resize(one_img, input_shape[2:])
     one_img = transform(one_img)
     one_img = one_img.unsqueeze(0) if one_img.ndimension() == 3 else one_img
-    one_img = one_img.float().cuda()
+    one_img = one_img.float()
 
-    output_names = ['det1', 'det2', 'det3', 'da_seg', 'll_seg']
+    output_names = ['det1', 'det2', 'det3', 'seg']
     input_name = 'input'
 
     torch.onnx.export(
@@ -72,20 +74,19 @@ def pytorch2onnx(model,
 
         # check the numerical value
         # get pytorch output
-        pytorch_det_pred, pytorch_da_seg_pred, pytorch_ll_seg_pred = model(one_img)
+        pytorch_det_pred, pytorch_da_seg_pred = model(one_img)
         pytorch_det1_pred = pytorch_det_pred[0].detach().cpu().numpy()
         print(f'pytorch_det1_pred shape: {pytorch_det1_pred.shape}')
         pytorch_det2_pred = pytorch_det_pred[1].detach().cpu().numpy()
         print(f'pytorch_det2_pred shape: {pytorch_det2_pred.shape}')
         pytorch_det3_pred = pytorch_det_pred[2].detach().cpu().numpy()
         print(f'pytorch_det3_pred shape: {pytorch_det3_pred.shape}')
-        pytorch_da_seg_pred, pytorch_ll_seg_pred = pytorch_da_seg_pred.detach().cpu().numpy(), pytorch_ll_seg_pred.detach().cpu().numpy()
+        pytorch_da_seg_pred = pytorch_da_seg_pred.detach().cpu().numpy()
         print(f'pytorch_da_seg_pred shape: {pytorch_da_seg_pred.shape}')
-        print(f'pytorch_ll_seg_pred shape: {pytorch_ll_seg_pred.shape}')
 
         # get onnx output
         sess = rt.InferenceSession(output_file)
-        det1_pred, det2_pred, det3_pred, da_seg_pred, ll_seg_pred= sess.run(
+        det1_pred, det2_pred, det3_pred, da_seg_pred= sess.run(
             output_names, {input_name: one_img.detach().cpu().numpy()})
         # only compare a part of result
         assert np.allclose(
@@ -96,10 +97,10 @@ def pytorch2onnx(model,
             pytorch_det3_pred, det3_pred, rtol=1.e-2, atol=1.e-6
         ) and np.allclose(
             pytorch_da_seg_pred, da_seg_pred, rtol=1.e-3
-        ) and np.allclose(
-            pytorch_ll_seg_pred, ll_seg_pred, rtol=1.e-3
         ), 'The outputs are different between Pytorch and ONNX'
         print('The numerical values are same between Pytorch and ONNX')
+        
+        flops, params = profile(model, inputs=(one_img, ))
 
 
 def parse_args():
@@ -122,7 +123,7 @@ def parse_args():
         '--shape',
         type=int,
         nargs='+',
-        default=[640, 640],
+        default=[416, 416],
         help='input image size')
     args = parser.parse_args()
     return args
@@ -144,7 +145,8 @@ if __name__ == '__main__':
 
     # build the model
     model = get_net(cfg)
-    checkpoint = torch.load(args.checkpoint, map_location='cuda')
+    model.eval()
+    checkpoint = torch.load(args.checkpoint)
     model.load_state_dict(checkpoint['state_dict'])
 
     # conver model to onnx file
