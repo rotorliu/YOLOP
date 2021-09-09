@@ -42,7 +42,7 @@ def pytorch2onnx(model,
     one_img = one_img.unsqueeze(0) if one_img.ndimension() == 3 else one_img
     one_img = one_img.float()
 
-    output_names = ['det1', 'det2', 'det3', 'seg']
+    output_names = ['det1', 'det2','seg']
     input_name = 'input'
 
     torch.onnx.export(
@@ -79,22 +79,18 @@ def pytorch2onnx(model,
         print(f'pytorch_det1_pred shape: {pytorch_det1_pred.shape}')
         pytorch_det2_pred = pytorch_det_pred[1].detach().cpu().numpy()
         print(f'pytorch_det2_pred shape: {pytorch_det2_pred.shape}')
-        pytorch_det3_pred = pytorch_det_pred[2].detach().cpu().numpy()
-        print(f'pytorch_det3_pred shape: {pytorch_det3_pred.shape}')
         pytorch_da_seg_pred = pytorch_da_seg_pred.detach().cpu().numpy()
         print(f'pytorch_da_seg_pred shape: {pytorch_da_seg_pred.shape}')
 
         # get onnx output
         sess = rt.InferenceSession(output_file)
-        det1_pred, det2_pred, det3_pred, da_seg_pred= sess.run(
+        det1_pred, det2_pred, da_seg_pred= sess.run(
             output_names, {input_name: one_img.detach().cpu().numpy()})
         # only compare a part of result
         assert np.allclose(
             pytorch_det1_pred, det1_pred, rtol=1.e-2, atol=1.e-6
         ) and np.allclose(
             pytorch_det2_pred, det2_pred, rtol=1.e-2, atol=1.e-6
-        ) and np.allclose(
-            pytorch_det3_pred, det3_pred, rtol=1.e-2, atol=1.e-6
         ) and np.allclose(
             pytorch_da_seg_pred, da_seg_pred, rtol=1.e-3
         ), 'The outputs are different between Pytorch and ONNX'
