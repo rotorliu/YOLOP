@@ -11,7 +11,7 @@ sys.path.append(os.getcwd())
 from lib.utils import initialize_weights
 # from lib.models.common2 import DepthSeperabelConv2d as Conv
 # from lib.models.common2 import SPP, Bottleneck, BottleneckCSP, Focus, Concat, Detect
-from lib.models.common import Conv, SPP, Bottleneck, BottleneckCSP, Focus, Concat, Detect, SharpenConv, Fire
+from lib.models.common import Conv, SPP, Bottleneck, BottleneckCSP, Focus, Concat, Detect, SharpenConv, Fire, DepthSeperabelConv2d
 from torch.nn import Upsample
 from lib.utils import check_anchor_order
 from lib.core.evaluate import SegmentationMetric
@@ -452,15 +452,15 @@ MCnet_share1 = [
 # The lane line and the driving area segment branches without share information with each other and without link
 YOLOP = [
 [15, 24, 33],   #Det_out_idx, Da_Segout_idx, LL_Segout_idx
-[ -1, Conv, [3, 32, 3, 2]],    #0
-[ -1, Conv, [32, 64, 3, 2]],    #1
+[ -1, DepthSeperabelConv2d, [3, 32, 3, 2]],    #0
+[ -1, DepthSeperabelConv2d, [32, 64, 3, 2]],    #1
 [ -1, Bottleneck, [64, 64, 1]],  #2
-[ -1, Conv, [64, 128, 3, 2]],   #3
+[ -1, DepthSeperabelConv2d, [64, 128, 3, 2]],   #3
 [ -1, Bottleneck, [128, 128, 3]],    #4
-[ -1, Conv, [128, 256, 3, 2]],  #5
+[ -1, DepthSeperabelConv2d, [128, 256, 3, 2]],  #5
 [ -1, SPP, [256, 256, [5, 9, 13]]],     #6
 [ -1, Bottleneck, [256, 256, 1, False]],     #7
-[ -1, Conv,[256, 128, 1, 1]],   #8
+[ -1, DepthSeperabelConv2d,[256, 128, 1, 1]],   #8
 [ -1, Upsample, [None, 2, 'nearest']],  #9
 [ [-1, 4], Concat, [1]],    #10
 
