@@ -27,14 +27,14 @@ class DepthSeperabelConv2d(nn.Module):
         super(DepthSeperabelConv2d, self).__init__()
         self.depthwise = nn.Sequential(
             nn.Conv2d(inplanes, inplanes, kernel_size, stride=stride, groups=inplanes, padding=kernel_size//2, bias=False),
-            nn.BatchNorm2d(inplanes, momentum=BN_MOMENTUM)
+            nn.BatchNorm2d(inplanes, momentum=0.937)
         )
         # self.depthwise = nn.Conv2d(inplanes, inplanes, kernel_size, stride=stride, groups=inplanes, padding=1, bias=False)
         # self.pointwise = nn.Conv2d(inplanes, planes, 1, bias=False)
 
         self.pointwise = nn.Sequential(
             nn.Conv2d(inplanes, planes, 1, bias=False),
-            nn.BatchNorm2d(planes, momentum=BN_MOMENTUM)
+            nn.BatchNorm2d(planes, momentum=0.937)
         )
         self.downsample = downsample
         self.stride = stride
