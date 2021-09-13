@@ -472,21 +472,21 @@ YOLOP = [
 
 [ 10, Conv, [256, 128, 3, 1]],   #16
 [ -1, Upsample, [None, 2, 'nearest']],  #17
-[ -1, BottleneckCSP, [128, 64, 1, False]],  #18
+[ -1, Bottleneck, [128, 64, 1, False]],  #18
 [ -1, Conv, [64, 32, 3, 1]],    #19
 [ -1, Upsample, [None, 2, 'nearest']],  #20
 [ -1, Conv, [32, 16, 3, 1]],    #21
-[ -1, BottleneckCSP, [16, 8, 1, False]],    #22
+[ -1, Bottleneck, [16, 8, 1, False]],    #22
 [ -1, Upsample, [None, 2, 'nearest']],  #23
 [ -1, Conv, [8, 2, 3, 1]], #24 Driving area segmentation head
 
 [ 10, Conv, [256, 128, 3, 1]],   #25
 [ -1, Upsample, [None, 2, 'nearest']],  #26
-[ -1, BottleneckCSP, [128, 64, 1, False]],  #27
+[ -1, Bottleneck, [128, 64, 1, False]],  #27
 [ -1, Conv, [64, 32, 3, 1]],    #28
 [ -1, Upsample, [None, 2, 'nearest']],  #29
 [ -1, Conv, [32, 16, 3, 1]],    #30
-[ -1, BottleneckCSP, [16, 8, 1, False]],    #31
+[ -1, Bottleneck, [16, 8, 1, False]],    #31
 [ -1, Upsample, [None, 2, 'nearest']],  #32
 [ -1, Conv, [8, 2, 3, 1]] #33 Lane line segmentation head
 ]
