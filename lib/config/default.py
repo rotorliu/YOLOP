@@ -12,7 +12,7 @@ _C.PRINT_FREQ = 20
 _C.AUTO_RESUME =False       # Resume from the last training interrupt
 _C.NEED_AUTOANCHOR = False      # Re-select the prior anchor(k-means)    When training from scratch (epoch=0), set it to be ture!
 _C.DEBUG = False
-_C.num_seg_class = 9
+_C.num_seg_class = 2
 
 # Cudnn related params
 _C.CUDNN = CN()
