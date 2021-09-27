@@ -7,9 +7,12 @@ sys.path.append(BASE_DIR)
 import pprint
 import time
 import torch
-import torch.nn.parallel
-from torch.nn.parallel import DistributedDataParallel as DDP
-from torch.cuda import amp
+from apex.parallel import convert_syncbn_model
+from apex.parallel import DistributedDataParallel as DDP
+from apex import amp
+#import torch.nn.parallel
+#from torch.nn.parallel import DistributedDataParallel
+#from torch.cuda import amp
 import torch.distributed as dist
 import torch.backends.cudnn as cudnn
 import torch.optim
@@ -33,7 +36,6 @@ from lib.utils.utils import get_optimizer
 from lib.utils.utils import save_checkpoint
 from lib.utils.utils import create_logger, select_device
 from lib.utils import run_anchor
-
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Train Multitask network')
@@ -80,7 +82,7 @@ def main():
     global_rank = int(os.environ['RANK']) if 'RANK' in os.environ else -1
 
     rank = global_rank
-    #print(rank)
+    print('rank:%s' % rank)
     # TODO: handle distributed training logger
     # set the logger, tb_log_dir means tensorboard logdir
 
@@ -111,16 +113,16 @@ def main():
     device = select_device(logger, batch_size=cfg.TRAIN.BATCH_SIZE_PER_GPU* len(cfg.GPUS)) if not cfg.DEBUG \
         else select_device(logger, 'cpu')
 
-    if args.local_rank != -1:
-        assert torch.cuda.device_count() > args.local_rank
-        torch.cuda.set_device(args.local_rank)
-        device = torch.device('cuda', args.local_rank)
-        dist.init_process_group(backend='nccl', init_method='env://')  # distributed backend
+    if rank != -1:
+        assert torch.cuda.device_count() > rank
+        torch.cuda.set_device(rank)
+        device = torch.device('cuda', rank)
+        dist.init_process_group(backend='nccl', init_method='env://', rank=rank, world_size=world_size)  # distributed backend
     
     print("load model to device")
-    model = get_net(cfg).to(device)
-    # print("load finished")
-    #model = model.to(device)
+    model = get_net(cfg)
+    print("load finished")
+    model = model.to(device)
     # print("finish build model")
     
 
@@ -139,9 +141,6 @@ def main():
     Da_Seg_Head_para_idx = [str(i) for i in range(25, 34)]
     Ll_Seg_Head_para_idx = [str(i) for i in range(34,43)]
 
-    lf = lambda x: ((1 + math.cos(x * math.pi / cfg.TRAIN.END_EPOCH)) / 2) * \
-                   (1 - cfg.TRAIN.LRF) + cfg.TRAIN.LRF  # cosine
-    lr_scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lf)
     begin_epoch = cfg.TRAIN.BEGIN_EPOCH
 
     if rank in [-1, 0]:
@@ -238,19 +237,29 @@ def main():
                 if k.split(".")[1] in Encoder_para_idx + Ll_Seg_Head_para_idx + Det_Head_para_idx:
                     print('freezing %s' % k)
                     v.requires_grad = False
-        
+       
+
+
+    
     if rank == -1 and torch.cuda.device_count() > 1:
         model = torch.nn.DataParallel(model, device_ids=cfg.GPUS)
         # model = torch.nn.DataParallel(model, device_ids=cfg.GPUS).cuda()
     # # DDP mode
     if rank != -1:
-        model = DDP(model, device_ids=[args.local_rank], output_device=args.local_rank,find_unused_parameters=True)
+        model = convert_syncbn_model(model)
+        opt_level = 'O1'
+        model, optimizer = amp.initialize(model, optimizer, opt_level=opt_level)
+        model = DDP(model, delay_allreduce=True)
 
 
     # assign model params
     model.gr = 1.0
     model.nc = 1
     # print('bulid model finished')
+
+    lf = lambda x: ((1 + math.cos(x * math.pi / cfg.TRAIN.END_EPOCH)) / 2) * \
+                   (1 - cfg.TRAIN.LRF) + cfg.TRAIN.LRF  # cosine
+    lr_scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lf)
 
     print("begin to load data")
     # Data loading
@@ -307,22 +316,23 @@ def main():
             run_anchor(logger,train_dataset, model=model, thr=cfg.TRAIN.ANCHOR_THRESHOLD, imgsz=min(cfg.MODEL.IMAGE_SIZE))
         else:
             logger.info("anchors loaded successfully")
-            det = model.module.model[model.module.detector_index] if is_parallel(model) \
-                else model.model[model.detector_index]
-            logger.info(str(det.anchors))
+            #det = model.module.model[model.module.detector_index] if is_parallel(model) \
+            #    else model.model[model.detector_index]
+            #logger.info(str(det.anchors))
 
     # training
     num_warmup = max(round(cfg.TRAIN.WARMUP_EPOCHS * num_batch), 1000)
-    scaler = amp.GradScaler(enabled=device.type != 'cpu')
+    #scaler = amp.GradScaler(enabled=device.type != 'cpu')
     print('=> start training...')
     for epoch in range(begin_epoch+1, cfg.TRAIN.END_EPOCH+1):
         if rank != -1:
             train_loader.sampler.set_epoch(epoch)
         # train for one epoch
-        train(cfg, train_loader, model, criterion, optimizer, scaler,
+        train(cfg, train_loader, model, criterion, optimizer,
               epoch, num_batch, num_warmup, writer_dict, logger, device, rank)
         
-        lr_scheduler.step()
+        if amp._amp_state.loss_scalers[0]._unskipped != 0: # assuming you are using a single optimizer
+            lr_scheduler.step()
 
         # evaluate on validation set
         if (epoch % cfg.TRAIN.VAL_FREQ == 0 or epoch == cfg.TRAIN.END_EPOCH) and rank in [-1, 0]:

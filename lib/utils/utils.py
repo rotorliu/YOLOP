@@ -9,6 +9,8 @@ sys.path.append(BASE_DIR)
 
 from lib.core.activations import Hardswish
 
+from apex.parallel import DistributedDataParallel as DDP
+
 import torch
 import torch.optim as optim
 import torch.nn as nn
@@ -144,7 +146,7 @@ def xyxy2xywh(x):
 
 
 def is_parallel(model):
-    return type(model) in (nn.parallel.DataParallel, nn.parallel.DistributedDataParallel)
+    return type(model) in (nn.parallel.DataParallel, nn.parallel.DistributedDataParallel, DDP)
 
 
 def time_synchronized():

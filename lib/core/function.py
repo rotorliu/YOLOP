@@ -14,11 +14,12 @@ import random
 import cv2
 import os
 import math
-from torch.cuda import amp
+from apex import amp
+#from torch.cuda import amp
 from tqdm import tqdm
 
 
-def train(cfg, train_loader, model, criterion, optimizer, scaler, epoch, num_batch, num_warmup,
+def train(cfg, train_loader, model, criterion, optimizer, epoch, num_batch, num_warmup,
           writer_dict, logger, device, rank=-1):
     """
     train for one epoch
@@ -44,13 +45,17 @@ def train(cfg, train_loader, model, criterion, optimizer, scaler, epoch, num_bat
     batch_time = AverageMeter()
     data_time = AverageMeter()
     losses = AverageMeter()
-
+    
+    #print('train rank:%s' % rank)
+    #print('train device:%s' % device)
     # switch to train mode
     model.train()
     start = time.time()
+    #print('start')
     for i, (input, target, paths, shapes) in enumerate(train_loader):
         intermediate = time.time()
         #print('tims:{}'.format(intermediate-start))
+        #print(paths)
         num_iter = i + num_batch * (epoch - 1)
 
         if num_iter < num_warmup:
@@ -72,16 +77,21 @@ def train(cfg, train_loader, model, criterion, optimizer, scaler, epoch, num_bat
             for tgt in target:
                 assign_target.append(tgt.to(device))
             target = assign_target
-        with amp.autocast(enabled=device.type != 'cpu'):
-            outputs = model(input)
-            total_loss, head_losses = criterion(outputs, target, shapes,model)
-            # print(head_losses)
+        #print('model start======')
+        #print(next(model.parameters()).device)
+        #print(input.device)
+        outputs = model(input)
+        #print('model end======')
+        total_loss, head_losses = criterion(outputs, target, shapes,model)
+        #print(head_losses)
 
         # compute gradient and do update step
         optimizer.zero_grad()
-        scaler.scale(total_loss).backward()
-        scaler.step(optimizer)
-        scaler.update()
+        with amp.scale_loss(total_loss, optimizer) as scaled_loss:
+            scaled_loss.backward()
+        optimizer.step()
+
+        torch.cuda.synchronize()
 
         if rank in [-1, 0]:
             # measure accuracy and record loss
