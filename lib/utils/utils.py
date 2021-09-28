@@ -10,6 +10,7 @@ sys.path.append(BASE_DIR)
 from lib.core.activations import Hardswish
 
 from apex.parallel import DistributedDataParallel as DDP
+from apex import amp
 
 import torch
 import torch.optim as optim
@@ -115,6 +116,7 @@ def save_checkpoint(epoch, name, model, optimizer, output_dir, filename, is_best
             # 'best_state_dict': model.module.state_dict(),
             # 'perf': perf_indicator,
             'optimizer': optimizer.state_dict(),
+            'amp': amp.state_dict()
         }
     torch.save(checkpoint, os.path.join(output_dir, filename))
     if is_best and 'state_dict' in checkpoint:

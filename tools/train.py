@@ -131,6 +131,13 @@ def main():
     optimizer = get_optimizer(cfg, model)
 
 
+    
+    # # DDP mode
+    if rank != -1:
+        model = convert_syncbn_model(model)
+        opt_level = 'O1'
+        model, optimizer = amp.initialize(model, optimizer, opt_level=opt_level)
+
     # load checkpoint model
     best_perf = 0.0
     best_model = False
@@ -181,6 +188,7 @@ def main():
             model.load_state_dict(checkpoint['state_dict'])
             # optimizer = get_optimizer(cfg, model)
             optimizer.load_state_dict(checkpoint['optimizer'])
+            amp.load_state_dict(checkpoint['amp']) # after amp.initialize, before DDP
             logger.info("=> loaded checkpoint '{}' (epoch {})".format(
                 checkpoint_file, checkpoint['epoch']))
             #cfg.NEED_AUTOANCHOR = False     #disable autoanchor
@@ -240,16 +248,12 @@ def main():
        
 
 
-    
     if rank == -1 and torch.cuda.device_count() > 1:
         model = torch.nn.DataParallel(model, device_ids=cfg.GPUS)
         # model = torch.nn.DataParallel(model, device_ids=cfg.GPUS).cuda()
-    # # DDP mode
     if rank != -1:
-        model = convert_syncbn_model(model)
-        opt_level = 'O1'
-        model, optimizer = amp.initialize(model, optimizer, opt_level=opt_level)
         model = DDP(model, delay_allreduce=True)
+    
 
 
     # assign model params
